@@ -1,0 +1,457 @@
+{
+  "version": "1.1",
+  "last_updated": "2026-02-11",
+  "note": "Tier 1 = в Docker (маленькие). Tier 2 = автоскачивание при старте (основные). Tier 3 = по требованию через UI.",
+  "categories": {
+    "unet": {
+      "display_name": "UNet / Основные модели",
+      "models": [
+        {
+          "name": "Wan2.2 T2V Low Noise 14B VACE (fp16)",
+          "filename": "Wan2.2_T2V_Low_Noise_14B_VACE_fp16.safetensors",
+          "dest_path": "models/unet/",
+          "size_gb": 33,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/diffusion_models/wan2.2_fun_vace_low_noise_14B_bf16.safetensors",
+          "tier": 2,
+          "tags": ["wan_video", "wan_lownoise"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "ОСНОВНАЯ модель. Автоскачивание при старте"
+        },
+        {
+          "name": "Wan2.2 T2V High Noise 14B VACE (fp16)",
+          "filename": "Wan2.2_T2V_High_Noise_14B_VACE_fp16.safetensors",
+          "dest_path": "models/unet/",
+          "size_gb": 33,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/diffusion_models/wan2.2_fun_vace_high_noise_14B_bf16.safetensors",
+          "tier": 3,
+          "tags": ["wan_video", "wan_highnoise"],
+          "profiles": ["full"],
+          "note": "High Noise вариант, по требованию"
+        },
+        {
+          "name": "Wan2.2 T2V Low Noise 14B VACE (Q8 GGUF)",
+          "filename": "Wan2.2_T2V_Low_Noise_14B_VACE-Q8_0.gguf",
+          "dest_path": "models/unet/",
+          "size_gb": 18,
+          "source": "hf",
+          "hf_repo": "QuantStack/Wan2.2-VACE-Fun-A14B-GGUF",
+          "hf_file": "Wan2.2-VACE-Fun-A14B-Q8_0.gguf",
+          "tier": 3,
+          "tags": ["wan_video", "gguf"],
+          "profiles": ["full"],
+          "note": "Квантизированная версия, меньше VRAM"
+        },
+        {
+          "name": "Wan2.2 Animate 14B (fp8)",
+          "filename": "Wan2_2-Animate-14B_fp8.safetensors",
+          "dest_path": "models/unet/",
+          "size_gb": 17,
+          "source": "hf",
+          "hf_repo": "okabeee/Wan2.2_Animate_14B_FP8",
+          "hf_file": "Wan2.2_Animate_14B_FP8.safetensors",
+          "tier": 3,
+          "tags": ["wan_animate"],
+          "profiles": ["full"],
+          "note": "Wan Animate для анимации изображений"
+        },
+        {
+          "name": "Flux1 Krea Dev (fp8)",
+          "filename": "flux1-krea-dev/flux1-krea-dev-fp8-e4m3fn.safetensors",
+          "dest_path": "models/unet/",
+          "size_gb": 23,
+          "source": "hf",
+          "hf_repo": "Clybius/FLUX.1-Krea-dev-scaled-fp8",
+          "hf_file": "flux1-krea-dev-fp8-e4m3fn.safetensors",
+          "tier": 3,
+          "tags": ["flux"],
+          "profiles": ["flux", "full"],
+          "note": "Flux для генерации изображений"
+        }
+      ]
+    },
+    "diffusion_models": {
+      "display_name": "Diffusion Models",
+      "models": [
+        {
+          "name": "Wan2.1 T2V 14B FusionX VACE (Q8 GGUF)",
+          "filename": "Wan2.1_T2V_14B_FusionX_VACE-Q8_0.gguf",
+          "dest_path": "models/diffusion_models/",
+          "size_gb": 18,
+          "source": "hf",
+          "hf_repo": "QuantStack/Wan2.1_T2V_14B_FusionX_VACE-GGUF",
+          "hf_file": "Wan2.1_T2V_14B_FusionX_VACE-Q8_0.gguf",
+          "tier": 3,
+          "tags": ["wan_video", "fusionx", "gguf"],
+          "profiles": ["full"],
+          "note": "FusionX вариант Wan 2.1"
+        }
+      ]
+    },
+    "text_encoders": {
+      "display_name": "Text Encoders",
+      "models": [
+        {
+          "name": "UMT5-XXL (fp16)",
+          "filename": "umt5_xxl_fp16.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 11,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/text_encoders/umt5_xxl_fp16.safetensors",
+          "tier": 2,
+          "tags": ["wan_video", "umt5"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "ОСНОВНОЙ текстовый энкодер для Wan Video"
+        },
+        {
+          "name": "UMT5-XXL (bf16)",
+          "filename": "umt5-xxl-enc-bf16.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 11,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+          "hf_file": "split_files/text_encoders/umt5_xxl_fp16.safetensors",
+          "tier": 3,
+          "tags": ["wan_video"],
+          "profiles": ["full"],
+          "note": "Дубль UMT5, по требованию"
+        },
+        {
+          "name": "UMT5-XXL (fp8)",
+          "filename": "umt5_xxl_fp8_e4m3fn.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 6.3,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+          "tier": 3,
+          "tags": ["wan_video"],
+          "profiles": ["full"],
+          "note": "Легкая версия UMT5, по требованию"
+        },
+        {
+          "name": "T5-XXL (fp16)",
+          "filename": "t5xxl_fp16.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 9.2,
+          "source": "hf",
+          "hf_repo": "comfyanonymous/flux_text_encoders",
+          "hf_file": "t5xxl_fp16.safetensors",
+          "tier": 3,
+          "tags": ["flux"],
+          "profiles": ["flux", "full"],
+          "note": "Текстовый энкодер для Flux"
+        },
+        {
+          "name": "T5-XXL (fp8)",
+          "filename": "t5xxl_fp8_e4m3fn.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 4.6,
+          "source": "hf",
+          "hf_repo": "comfyanonymous/flux_text_encoders",
+          "hf_file": "t5xxl_fp8_e4m3fn.safetensors",
+          "tier": 3,
+          "tags": ["flux"],
+          "profiles": ["flux", "full"],
+          "note": "Для Flux, легкая версия"
+        },
+        {
+          "name": "CLIP-G",
+          "filename": "clip_g.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 1.3,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+          "hf_file": "split_files/text_encoders/clip_g.safetensors",
+          "tier": 3,
+          "tags": ["base"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        },
+        {
+          "name": "Long CLIP ViT-L-14",
+          "filename": "Long-ViT-L-14-GmP-ft-TextEncoders/long_clip-ViT-L-14-GmP-ft-TE-only-HF.safetensors",
+          "dest_path": "models/text_encoders/",
+          "size_gb": 0.87,
+          "source": "hf",
+          "hf_repo": "zer0int/LongCLIP-GmP-ViT-L-14",
+          "hf_file": "Long-ViT-L-14-GmP-ft.safetensors",
+          "tier": 3,
+          "tags": ["base"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        }
+      ]
+    },
+    "loras": {
+      "display_name": "LoRA",
+      "models": [
+        {
+          "name": "LightX2V I2V High Noise",
+          "filename": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 0.62,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+          "tier": 3,
+          "tags": ["wan_video", "lightx2v", "i2v"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        },
+        {
+          "name": "LightX2V I2V Low Noise",
+          "filename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 0.72,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+          "tier": 1,
+          "tags": ["wan_video", "lightx2v", "i2v"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "В Docker. LightX2V I2V ускорение"
+        },
+        {
+          "name": "LightX2V T2V High Noise",
+          "filename": "wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_1217.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 0.6,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+          "tier": 3,
+          "tags": ["wan_video", "lightx2v", "t2v"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        },
+        {
+          "name": "LightX2V T2V Low Noise",
+          "filename": "wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_1217.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 0.6,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "hf_file": "split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+          "tier": 3,
+          "tags": ["wan_video", "lightx2v", "t2v"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        },
+        {
+          "name": "FastWan VACE 14B 16steps",
+          "filename": "FastWan-VACE-14B-16steps.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 1.2,
+          "source": "unknown",
+          "hf_repo": "",
+          "hf_file": "",
+          "tier": 3,
+          "tags": ["wan_video"],
+          "profiles": ["full"],
+          "note": "Источник не найден на HF. Уточнить у пользователя"
+        },
+        {
+          "name": "Hyper-FLUX.1-dev 8steps",
+          "filename": "Hyper-FLUX.1-dev-8steps-lora.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 1.3,
+          "source": "hf",
+          "hf_repo": "ByteDance/Hyper-SD",
+          "hf_file": "Hyper-FLUX.1-dev-8steps-lora.safetensors",
+          "tier": 3,
+          "tags": ["flux"],
+          "profiles": ["flux", "full"],
+          "note": "Ускорение Flux до 8 шагов"
+        },
+        {
+          "name": "Wan14B RealismBoost v1",
+          "filename": "Wan14B_RealismBoost_v1.safetensors",
+          "dest_path": "models/loras/",
+          "size_gb": 0.29,
+          "source": "hf",
+          "hf_repo": "anthonyluu/Wan14B_RealismBoost",
+          "hf_file": "Wan14B_RealismBoost.safetensors",
+          "tier": 3,
+          "tags": ["wan_video"],
+          "profiles": ["full"],
+          "note": "Реализм для Wan Video"
+        }
+      ]
+    },
+    "sams": {
+      "display_name": "SAM / Segmentation",
+      "models": [
+        {
+          "name": "SeC-4B (fp16)",
+          "filename": "SeC-4B-fp16.safetensors",
+          "dest_path": "models/sams/",
+          "size_gb": 7.4,
+          "source": "hf",
+          "hf_repo": "OpenIXCLab/SeC-4B",
+          "hf_file": "",
+          "tier": 2,
+          "tags": ["wan_video", "sec"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "ОСНОВНАЯ. Автоскачивание. fp16 single-file (возможно community repack)"
+        }
+      ]
+    },
+    "controlnet": {
+      "display_name": "ControlNet",
+      "models": [
+        {
+          "name": "Flux ControlNet Upscale v1.0",
+          "filename": "fluxControlnetUpscale_v10.safetensors",
+          "dest_path": "models/controlnet/",
+          "size_gb": 1.7,
+          "source": "civitai",
+          "hf_repo": "",
+          "hf_file": "",
+          "tier": 3,
+          "tags": ["flux", "controlnet"],
+          "profiles": ["flux", "full"],
+          "note": "CivitAI модель. ControlNet для Flux upscale"
+        }
+      ]
+    },
+    "clip_vision": {
+      "display_name": "CLIP Vision",
+      "models": [
+        {
+          "name": "CLIP Vision H",
+          "filename": "clip_vision_h.safetensors",
+          "dest_path": "models/clip_vision/",
+          "size_gb": 1.2,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+          "hf_file": "split_files/clip_vision/clip_vision_h.safetensors",
+          "tier": 3,
+          "tags": ["base"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        }
+      ]
+    },
+    "clip": {
+      "display_name": "CLIP",
+      "models": [
+        {
+          "name": "CLIP-L",
+          "filename": "clip_l.safetensors",
+          "dest_path": "models/clip/",
+          "size_gb": 0.23,
+          "source": "hf",
+          "hf_repo": "comfyanonymous/flux_text_encoders",
+          "hf_file": "clip_l.safetensors",
+          "tier": 3,
+          "tags": ["base"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        }
+      ]
+    },
+    "vae": {
+      "display_name": "VAE",
+      "models": [
+        {
+          "name": "Wan 2.1 VAE",
+          "filename": "wan_2.1_vae.safetensors",
+          "dest_path": "models/vae/",
+          "size_gb": 0.24,
+          "source": "hf",
+          "hf_repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+          "hf_file": "split_files/vae/wan_2.1_vae.safetensors",
+          "tier": 1,
+          "tags": ["wan_video", "base"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "В Docker. ОСНОВНОЙ VAE для Wan Video"
+        },
+        {
+          "name": "Flux VAE (ae)",
+          "filename": "ae.safetensors",
+          "dest_path": "models/vae/",
+          "size_gb": 0.31,
+          "source": "hf",
+          "hf_repo": "black-forest-labs/FLUX.1-dev",
+          "hf_file": "ae.safetensors",
+          "tier": 1,
+          "tags": ["flux"],
+          "profiles": ["flux", "default", "full"],
+          "note": "В Docker. VAE для Flux (gated repo, нужен HF token)"
+        }
+      ]
+    },
+    "upscale_models": {
+      "display_name": "Upscalers",
+      "models": [
+        {
+          "name": "4xNomos8k ATD JPG",
+          "filename": "4xNomos8k_atd_jpg.pth",
+          "dest_path": "models/upscale_models/",
+          "size_gb": 0.08,
+          "source": "hf",
+          "hf_repo": "Phips/4xNomos8k_atd_jpg",
+          "hf_file": "4xNomos8k_atd_jpg.safetensors",
+          "tier": 3,
+          "tags": ["base"],
+          "profiles": ["full"],
+          "note": "По требованию"
+        }
+      ]
+    },
+    "vae_approx": {
+      "display_name": "VAE Approximation",
+      "models": [
+        {
+          "name": "Light TAEW 2.1",
+          "filename": "lighttaew2_1.pth",
+          "dest_path": "models/vae_approx/",
+          "size_gb": 0.04,
+          "source": "hf",
+          "hf_repo": "",
+          "hf_file": "",
+          "tier": 1,
+          "tags": ["wan_video", "base"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "В Docker. ОСНОВНОЙ preview VAE"
+        },
+        {
+          "name": "TAEW 2.1",
+          "filename": "taew2_1.pth",
+          "dest_path": "models/vae_approx/",
+          "size_gb": 0.0001,
+          "source": "hf",
+          "hf_repo": "",
+          "hf_file": "",
+          "tier": 1,
+          "tags": ["wan_video", "base"],
+          "profiles": ["wan_video", "default", "full"],
+          "note": "В Docker. ОСНОВНОЙ preview VAE"
+        }
+      ]
+    }
+  },
+  "profiles": {
+    "wan_video": {
+      "description": "Wan Video — основной рабочий набор (Low Noise + UMT5 + SeC + базовые)",
+      "tags": ["wan_video", "base"]
+    },
+    "flux": {
+      "description": "Flux — генерация изображений",
+      "tags": ["flux", "base"]
+    },
+    "default": {
+      "description": "Стандартный набор = wan_video",
+      "tags": ["wan_video", "base"]
+    },
+    "full": {
+      "description": "Все модели",
+      "tags": ["*"]
+    }
+  }
+}

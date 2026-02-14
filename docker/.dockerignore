@@ -1,0 +1,10 @@
+# Don't copy these into Docker image
+inventory/
+docs/
+.git/
+.github/
+*.md
+!manager/requirements.txt
+__pycache__/
+*.pyc
+.claude/

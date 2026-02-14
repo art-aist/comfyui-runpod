@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-02-11",
+  "nodes": [
+    {
+      "name": "ComfyUI-Manager",
+      "repo_url": "https://github.com/ltdrdata/ComfyUI-Manager.git",
+      "description": "Менеджер для установки/обновления custom nodes",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-WanAnimatePreprocess",
+      "repo_url": "https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git",
+      "description": "Препроцессинг для Wan Animate воркфлоу",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI_Comfyroll_CustomNodes",
+      "repo_url": "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git",
+      "description": "Утилиты: aspect ratio, текст, и т.д.",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "Comfyui-SecNodes",
+      "repo_url": "https://github.com/9nate-drake/Comfyui-SecNodes.git",
+      "description": "Кастомные ноды для SeC модели",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "comfy-image-saver",
+      "repo_url": "https://github.com/alexopus/comfy-image-saver.git",
+      "description": "Сохранение изображений с метаданными",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "masquerade-nodes-comfyui",
+      "repo_url": "https://github.com/BadCafeCode/masquerade-nodes-comfyui.git",
+      "description": "Маски и манипуляции с изображениями",
+      "tier": 1,
+      "required": false
+    }
+  ]
+}

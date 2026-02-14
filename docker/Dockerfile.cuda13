@@ -1,0 +1,201 @@
+# =============================================================
+# ComfyUI RunPod Universal Template — CUDA 13.0 (Blackwell)
+# =============================================================
+# NVFP4 quantization → 2x speedup on Blackwell GPUs (RTX 5090, B200)
+#
+# Base image варианты (раскомментируй нужный):
+#   RunPod (новый формат):  runpod/pytorch:2.9.1-cu1300-torch291-ubuntu2404
+#   Official PyTorch:       pytorch/pytorch:2.9.0-cuda13.0-cudnn9-devel
+#
+# Если RunPod image не найден — используй official PyTorch
+# =============================================================
+
+# --- Base image ---
+# build_and_push.sh автоматически находит подходящий image
+# Можно переопределить: docker build --build-arg BASE_IMAGE=pytorch/pytorch:2.9.0-cuda13.0-cudnn9-devel
+ARG BASE_IMAGE=runpod/pytorch:2.9.1-cu1300-torch291-ubuntu2404
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="art@aist.digital"
+LABEL description="ComfyUI + Model Manager for RunPod — CUDA 13.0 Blackwell"
+
+# --- Env ---
+ENV DEBIAN_FRONTEND=noninteractive
+ENV COMFYUI_PATH=/opt/ComfyUI
+ENV MANAGER_PORT=7860
+ENV COMFYUI_PORT=8188
+ENV MODEL_PROFILE=default
+ENV COMFYUI_ARGS="--highvram"
+ENV SKIP_GPU_CHECK=false
+ENV AUTO_START_COMFYUI=true
+
+# HF_TOKEN нужен при сборке для gated моделей (Flux VAE)
+ARG HF_TOKEN=""
+
+# --- System deps ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    wget \
+    curl \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Verify CUDA 13.0 ---
+RUN python3 -c "\
+import torch; \
+print(f'PyTorch: {torch.__version__}'); \
+print(f'CUDA: {torch.version.cuda}'); \
+assert torch.version.cuda.startswith('13'), f'WRONG CUDA: {torch.version.cuda}'; \
+print('CUDA 13.0 verified!'); \
+"
+
+# --- Clone ComfyUI ---
+RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git $COMFYUI_PATH
+
+WORKDIR $COMFYUI_PATH
+
+# --- Install ComfyUI requirements ---
+RUN pip install --no-cache-dir -r requirements.txt
+
+# --- Install Tier 1 custom nodes ---
+COPY config/nodes_catalog.json /tmp/nodes_catalog.json
+
+RUN python3 << 'EOF'
+import json, subprocess, os
+
+catalog = json.load(open("/tmp/nodes_catalog.json"))
+nodes = [n for n in catalog.get("nodes", []) if n.get("tier", 99) == 1]
+print(f"Installing {len(nodes)} Tier 1 custom nodes...")
+
+for n in nodes:
+    name = os.path.basename(n["repo_url"]).replace(".git", "")
+    dest = f"/opt/ComfyUI/custom_nodes/{name}"
+    if not os.path.exists(dest):
+        print(f"  {n['name']}...")
+        subprocess.run(["git", "clone", "--depth", "1", n["repo_url"], dest], check=True)
+    else:
+        print(f"  {n['name']} — уже есть")
+
+print("Done!")
+EOF
+
+# Install pip requirements for each node
+RUN for d in $COMFYUI_PATH/custom_nodes/*/; do \
+      if [ -f "$d/requirements.txt" ]; then \
+        echo "  pip install: $(basename $d)"; \
+        pip install --no-cache-dir -r "$d/requirements.txt" 2>&1 | tail -1 || true; \
+      fi; \
+    done
+
+# --- Manager UI + HuggingFace Hub ---
+RUN pip install --no-cache-dir "gradio>=4.0" "huggingface_hub>=0.20.0" aiohttp tqdm
+
+# --- Download Tier 1 models (маленькие, в Docker образе) ---
+# Tier 1: LightX2V I2V Low Noise (0.72GB), Wan 2.1 VAE (0.24GB), Flux VAE (0.31GB)
+# vae_approx (lighttaew2_1.pth, taew2_1.pth) уже включены в ComfyUI repo
+
+RUN python3 << 'EOFMODELS'
+import os, sys
+
+# Check if huggingface_hub available
+try:
+    from huggingface_hub import hf_hub_download
+except ImportError:
+    print("WARNING: huggingface_hub not installed, skipping Tier 1 model downloads")
+    sys.exit(0)
+
+hf_token = os.environ.get("HF_TOKEN", "") or None
+base = "/opt/ComfyUI"
+
+tier1_models = [
+    {
+        "name": "LightX2V I2V Low Noise",
+        "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+        "hf_file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+        "dest_dir": f"{base}/models/loras",
+        "filename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+    },
+    {
+        "name": "Wan 2.1 VAE",
+        "hf_repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+        "hf_file": "split_files/vae/wan_2.1_vae.safetensors",
+        "dest_dir": f"{base}/models/vae",
+        "filename": "wan_2.1_vae.safetensors",
+    },
+]
+
+# Flux VAE is gated — only download if HF_TOKEN provided
+if hf_token:
+    tier1_models.append({
+        "name": "Flux VAE (gated repo)",
+        "hf_repo": "black-forest-labs/FLUX.1-dev",
+        "hf_file": "ae.safetensors",
+        "dest_dir": f"{base}/models/vae",
+        "filename": "ae.safetensors",
+    })
+else:
+    print("WARNING: HF_TOKEN not set, skipping Flux VAE (gated repo)")
+    print("  Flux VAE будет скачан при старте Pod, если HF_TOKEN задан в template")
+
+for m in tier1_models:
+    dest_path = os.path.join(m["dest_dir"], m["filename"])
+    if os.path.exists(dest_path):
+        print(f"  [skip] {m['name']} — уже есть")
+        continue
+    print(f"  [download] {m['name']}...")
+    os.makedirs(m["dest_dir"], exist_ok=True)
+    try:
+        downloaded = hf_hub_download(
+            repo_id=m["hf_repo"],
+            filename=m["hf_file"],
+            local_dir=m["dest_dir"],
+            local_dir_use_symlinks=False,
+            token=hf_token,
+        )
+        # Rename if hf_file has subdirs (downloaded to subdir)
+        from pathlib import Path
+        dl = Path(downloaded)
+        target = Path(dest_path)
+        if dl != target and dl.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            dl.rename(target)
+        print(f"  [ok] {m['name']}")
+    except Exception as e:
+        print(f"  [error] {m['name']}: {str(e)[:200]}")
+
+# Check vae_approx models (should be in ComfyUI repo)
+for f in ["lighttaew2_1.pth", "taew2_1.pth"]:
+    path = f"{base}/models/vae_approx/{f}"
+    if os.path.exists(path):
+        print(f"  [ok] {f} — в ComfyUI repo")
+    else:
+        print(f"  [warn] {f} — не найден в ComfyUI repo, будет скачан при старте")
+
+print("\nTier 1 models done!")
+EOFMODELS
+
+# --- Copy project files ---
+COPY scripts/ /opt/scripts/
+COPY manager/ /opt/manager/
+COPY config/ /opt/config/
+
+RUN chmod +x /opt/scripts/*.sh
+
+# --- Final verification ---
+RUN python3 -c "\
+import torch; \
+print('=== Final Verification ==='); \
+print(f'PyTorch: {torch.__version__}'); \
+print(f'CUDA: {torch.version.cuda}'); \
+print(f'cuDNN: {torch.backends.cudnn.version()}'); \
+print('Verification passed!'); \
+"
+
+# --- Expose ports ---
+# 7860 = Manager UI, 8188 = ComfyUI
+EXPOSE 7860 8188
+
+# --- Entrypoint ---
+CMD ["/bin/bash", "/opt/scripts/startup.sh"]

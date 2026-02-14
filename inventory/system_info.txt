@@ -1,0 +1,15 @@
+Inventory Date: 2026-02-11
+Pod: RunPod (EU-RO-1)
+
+=== GPU ===
+NVIDIA Driver: 580.126.09
+CUDA (driver): 13.0
+GPU: (to be confirmed from nvidia-smi output)
+
+=== PyTorch ===
+PyTorch: 2.8.0.dev20250319+cu128
+CUDA toolkit (PyTorch): 12.8
+NOTE: PyTorch uses CUDA 12.8, NOT 13.0. Driver supports 13.0 but toolkit is 12.8.
+
+=== Python ===
+Python 3.11

@@ -1,0 +1,24 @@
+# Custom nodes inventory from Pod (2026-02-11)
+# Format: name | git_url (if available)
+
+1. ComfyUI-Manager
+   - https://github.com/ltdrdata/ComfyUI-Manager.git
+   - Standard manager for installing nodes
+
+2. ComfyUI-WanAnimatePreprocess
+   - Preprocessing for Wan Animate workflows
+
+3. ComfyUI_Comfyroll_CustomNodes
+   - https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git
+   - Utility nodes (aspect ratio, text, etc.)
+
+4. Comfyui-SecNodes
+   - Custom nodes for SeC model
+
+5. comfy-image-saver
+   - https://github.com/alexopus/comfy-image-saver.git
+   - Save images with metadata
+
+6. masquerade-nodes-comfyui
+   - https://github.com/BadCafeCode/masquerade-nodes-comfyui.git
+   - Mask/image manipulation nodes
