@@ -17,7 +17,7 @@ COMFYUI_PATH="${COMFYUI_PATH:-/opt/ComfyUI}"
 WORKSPACE="${WORKSPACE:-/workspace}"
 MANAGER_PORT="${MANAGER_PORT:-7860}"
 COMFYUI_PORT="${COMFYUI_PORT:-8188}"
-COMFYUI_ARGS="${COMFYUI_ARGS:---highvram}"
+COMFYUI_ARGS="${COMFYUI_ARGS:-}"
 MODEL_PROFILE="${MODEL_PROFILE:-default}"
 SKIP_GPU_CHECK="${SKIP_GPU_CHECK:-false}"
 AUTO_START_COMFYUI="${AUTO_START_COMFYUI:-true}"
@@ -122,9 +122,61 @@ else
     echo "  Manager UI не найден, пропускаю"
 fi
 
-# ===== STEP 5: Auto-download models + Start ComfyUI =====
+# ===== STEP 5: Sync LoRA catalog from HF + Auto-download =====
 echo ""
-echo "[Step 6/6] Загрузка моделей (профиль: $MODEL_PROFILE, тиры: 1,2)..."
+echo "[Step 6/7] Синхронизация LoRA каталога с HuggingFace..."
+HF_CONFIG_REPO="${HF_CONFIG_REPO:-kucher7serg/comfyui-config}"
+if [ -n "$HF_TOKEN" ]; then
+    python3 << 'EOFLORA' || echo "  LoRA sync skipped (repo may not exist yet)"
+import json, os, sys
+try:
+    from huggingface_hub import hf_hub_download
+    repo = os.environ.get("HF_CONFIG_REPO", "kucher7serg/comfyui-config")
+    token = os.environ.get("HF_TOKEN")
+    local_dir = "/opt/config"
+
+    path = hf_hub_download(
+        repo_id=repo, filename="loras_catalog.json",
+        repo_type="dataset", local_dir=local_dir, token=token,
+    )
+    with open(path) as f:
+        catalog = json.load(f)
+
+    loras = catalog.get("loras", [])
+    auto_loras = [l for l in loras if l.get("auto_download")]
+    print(f"  LoRA catalog: {len(loras)} total, {len(auto_loras)} auto-download")
+
+    if auto_loras:
+        comfyui = os.environ.get("WORKSPACE", "/workspace") + "/ComfyUI"
+        loras_dir = f"{comfyui}/models/loras"
+        os.makedirs(loras_dir, exist_ok=True)
+
+        for lora in auto_loras:
+            dest = f"{loras_dir}/{lora['filename']}"
+            if os.path.exists(dest):
+                print(f"    [skip] {lora['name']}")
+                continue
+            print(f"    [download] {lora['name']} ({lora.get('size_gb', 0)}GB)...")
+            try:
+                hf_hub_download(
+                    repo_id=lora["hf_repo"],
+                    filename=lora.get("hf_file", lora["filename"]),
+                    local_dir=loras_dir, token=token,
+                )
+                print(f"    [ok] {lora['name']}")
+            except Exception as e:
+                print(f"    [error] {lora['name']}: {str(e)[:150]}")
+
+except Exception as e:
+    print(f"  LoRA sync: {e}")
+EOFLORA
+else
+    echo "  HF_TOKEN not set, skipping LoRA sync"
+fi
+
+# ===== STEP 6: Auto-download models =====
+echo ""
+echo "[Step 7/7] Загрузка моделей (профиль: $MODEL_PROFILE, тиры: 1,2)..."
 if [ -f "$CONFIG_DIR/models_catalog.json" ]; then
     python3 "$SCRIPTS_DIR/download_models.py" \
         --catalog "$CONFIG_DIR/models_catalog.json" \

@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "note": "LoRA catalog. Synced with HF repo kucher7serg/comfyui-config. auto_download=true — скачивается при старте Pod",
+  "loras": [
+    {
+      "name": "Wan 2.2 I2V LightX2V 4step Low Noise",
+      "filename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+      "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "hf_file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+      "size_gb": 0.72,
+      "auto_download": true,
+      "description": "4-step LoRA for fast Wan I2V generation"
+    }
+  ]
+}

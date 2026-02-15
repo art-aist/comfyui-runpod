@@ -25,7 +25,7 @@ ENV COMFYUI_PATH=/opt/ComfyUI
 ENV MANAGER_PORT=7860
 ENV COMFYUI_PORT=8188
 ENV MODEL_PROFILE=default
-ENV COMFYUI_ARGS="--highvram"
+ENV COMFYUI_ARGS=""
 ENV SKIP_GPU_CHECK=false
 ENV AUTO_START_COMFYUI=true
 
@@ -81,16 +81,35 @@ for n in nodes:
 print("Done!")
 EOF
 
-# Install pip requirements for each node
-RUN for d in $COMFYUI_PATH/custom_nodes/*/; do \
+# Install pip requirements for each node (показываем ошибки, но не прерываем сборку)
+RUN FAILED="" && \
+    for d in $COMFYUI_PATH/custom_nodes/*/; do \
+      name=$(basename "$d"); \
       if [ -f "$d/requirements.txt" ]; then \
-        echo "  pip install: $(basename $d)"; \
-        pip install --no-cache-dir -r "$d/requirements.txt" 2>&1 | tail -1 || true; \
+        echo ""; \
+        echo "=== pip install: $name ==="; \
+        pip install --no-cache-dir -r "$d/requirements.txt" 2>&1 || FAILED="$FAILED $name"; \
       fi; \
-    done
+      if [ -f "$d/install.py" ]; then \
+        echo "=== install.py: $name ==="; \
+        (cd "$d" && python3 install.py) 2>&1 || echo "  [warn] install.py failed for $name"; \
+      fi; \
+    done && \
+    echo "" && \
+    if [ -n "$FAILED" ]; then \
+      echo "========================================"; \
+      echo "WARNING: pip install failed for:$FAILED"; \
+      echo "========================================"; \
+    else \
+      echo "All custom node dependencies installed successfully!"; \
+    fi
 
 # --- Manager UI + HuggingFace Hub + JupyterLab ---
 RUN pip install --no-cache-dir "gradio>=4.0" "huggingface_hub>=0.20.0" aiohttp tqdm jupyterlab
+
+# --- Verify no broken dependencies ---
+RUN echo "=== Checking for dependency conflicts ===" && \
+    pip check 2>&1 || echo "WARNING: some dependency conflicts detected (may be harmless)"
 
 # --- Download Tier 1 models (маленькие, в Docker образе) ---
 # Tier 1: LightX2V I2V Low Noise (0.72GB), Wan 2.1 VAE (0.24GB), Flux VAE (0.31GB)

@@ -1,11 +1,96 @@
 {
-  "version": "1.0",
-  "last_updated": "2026-02-11",
+  "version": "1.2",
+  "last_updated": "2026-02-15",
+  "note": "Полный список custom nodes из рабочего Pod (15 days ago = оригинальные, 5 days = недавно добавленные)",
   "nodes": [
     {
       "name": "ComfyUI-Manager",
       "repo_url": "https://github.com/ltdrdata/ComfyUI-Manager.git",
       "description": "Менеджер для установки/обновления custom nodes",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-VideoHelperSuite",
+      "repo_url": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+      "description": "VHS_VideoCombine, VHS_LoadVideo, VHS_VideoInfo, VHS_MergeImages",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-KJNodes",
+      "repo_url": "https://github.com/kijai/ComfyUI-KJNodes.git",
+      "description": "DiffusionModelLoaderKJ, ImageResizeKJv2, GGUFLoaderKJ, PatchSageAttentionKJ",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-GGUF",
+      "repo_url": "https://github.com/city96/ComfyUI-GGUF.git",
+      "description": "ClipLoaderGGUF, LoaderGGUF — загрузка GGUF моделей",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "comfyui_controlnet_aux",
+      "repo_url": "https://github.com/Fannovel16/comfyui_controlnet_aux.git",
+      "description": "AIO_Preprocessor и другие препроцессоры",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-Custom-Scripts",
+      "repo_url": "https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git",
+      "description": "ReroutePrimitive, MathExpression, и утилиты от pysssss",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-Easy-Use",
+      "repo_url": "https://github.com/yolain/ComfyUI-Easy-Use.git",
+      "description": "easy mathInt, easy showAnything и другие упрощённые ноды",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "rgthree-comfy",
+      "repo_url": "https://github.com/rgthree/rgthree-comfy.git",
+      "description": "Reroute, Power Lora Loader, и утилиты",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI_essentials",
+      "repo_url": "https://github.com/cubiq/ComfyUI_essentials.git",
+      "description": "ImageFlip+, MaskFromColor+, ImageConcatMulti, Masks Add",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-WanVideoWrapper",
+      "repo_url": "https://github.com/kijai/ComfyUI-WanVideoWrapper.git",
+      "description": "WanVideoVACEEncode, WanVideoSampler, WanVideoVACEStartToEndFrame",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "ComfyUI-SuperUltimateVaceTools",
+      "repo_url": "https://github.com/kijai/ComfyUI-SuperUltimateVACETools.git",
+      "description": "Продвинутые инструменты для VACE",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "was-node-suite-comfyui",
+      "repo_url": "https://github.com/WASasquatch/was-node-suite-comfyui.git",
+      "description": "Большой набор утилит (Image, Text, Math и т.д.)",
+      "tier": 1,
+      "required": true
+    },
+    {
+      "name": "cg-use-everywhere",
+      "repo_url": "https://github.com/chrisgoringe/cg-use-everywhere.git",
+      "description": "Use Everywhere — автоматическое подключение нод",
       "tier": 1,
       "required": true
     },
@@ -17,18 +102,53 @@
       "required": true
     },
     {
-      "name": "ComfyUI_Comfyroll_CustomNodes",
-      "repo_url": "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git",
-      "description": "Утилиты: aspect ratio, текст, и т.д.",
-      "tier": 1,
-      "required": false
-    },
-    {
       "name": "Comfyui-SecNodes",
       "repo_url": "https://github.com/9nate-drake/Comfyui-SecNodes.git",
       "description": "Кастомные ноды для SeC модели",
       "tier": 1,
       "required": true
+    },
+    {
+      "name": "comfyui-art-venture",
+      "repo_url": "https://github.com/sipherxyz/comfyui-art-venture.git",
+      "description": "Art Venture утилиты",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "ComfyUI_Fill-Nodes",
+      "repo_url": "https://github.com/filliptm/ComfyUI_Fill-Nodes.git",
+      "description": "Fill nodes утилиты",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "ComfyUI_UltimateSDUpscale",
+      "repo_url": "https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git",
+      "description": "Ultimate SD Upscale",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "ComfyUI-detail-daemon",
+      "repo_url": "https://github.com/Jonseed/ComfyUI-detail-daemon.git",
+      "description": "Detail Daemon для улучшения деталей",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "ComfyUI-Flux-Continuum",
+      "repo_url": "https://github.com/robertvoy/ComfyUI-Flux-Continuum.git",
+      "description": "Flux Continuum воркфлоу",
+      "tier": 1,
+      "required": false
+    },
+    {
+      "name": "ComfyUI_Comfyroll_CustomNodes",
+      "repo_url": "https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git",
+      "description": "Утилиты: aspect ratio, текст, и т.д.",
+      "tier": 1,
+      "required": false
     },
     {
       "name": "comfy-image-saver",

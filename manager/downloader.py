@@ -120,7 +120,6 @@ class ModelDownloader:
                         repo_id=model["hf_repo"],
                         filename=model.get("hf_file", model["filename"]),
                         local_dir=str(dest_dir),
-                        local_dir_use_symlinks=False,
                         token=hf_token,
                     )
                 elif source == "url":
