@@ -89,8 +89,8 @@ RUN for d in $COMFYUI_PATH/custom_nodes/*/; do \
       fi; \
     done
 
-# --- Manager UI + HuggingFace Hub ---
-RUN pip install --no-cache-dir "gradio>=4.0" "huggingface_hub>=0.20.0" aiohttp tqdm
+# --- Manager UI + HuggingFace Hub + JupyterLab ---
+RUN pip install --no-cache-dir "gradio>=4.0" "huggingface_hub>=0.20.0" aiohttp tqdm jupyterlab
 
 # --- Download Tier 1 models (маленькие, в Docker образе) ---
 # Tier 1: LightX2V I2V Low Noise (0.72GB), Wan 2.1 VAE (0.24GB), Flux VAE (0.31GB)
@@ -194,8 +194,8 @@ print('Verification passed!'); \
 "
 
 # --- Expose ports ---
-# 7860 = Manager UI, 8188 = ComfyUI
-EXPOSE 7860 8188
+# 7860 = Manager UI, 8188 = ComfyUI, 8888 = JupyterLab
+EXPOSE 7860 8188 8888
 
 # --- Entrypoint ---
 CMD ["/bin/bash", "/opt/scripts/startup.sh"]

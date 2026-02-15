@@ -85,9 +85,27 @@ else
     echo "  nodes_catalog.json не найден, пропускаю"
 fi
 
-# ===== STEP 4: Manager UI =====
+# ===== STEP 4: JupyterLab + Manager UI =====
 echo ""
-echo "[Step 4/5] Запуск Manager UI..."
+echo "[Step 4/6] Запуск JupyterLab..."
+JUPYTER_PORT="${JUPYTER_PORT:-8888}"
+if command -v jupyter &> /dev/null; then
+    jupyter lab \
+        --ip=0.0.0.0 \
+        --port="$JUPYTER_PORT" \
+        --no-browser \
+        --allow-root \
+        --NotebookApp.token='' \
+        --NotebookApp.password='' \
+        --notebook-dir="$WORKSPACE" \
+        &
+    echo "  JupyterLab запущен на порту $JUPYTER_PORT"
+else
+    echo "  JupyterLab не установлен, пропускаю"
+fi
+
+echo ""
+echo "[Step 5/6] Запуск Manager UI..."
 if [ -f "$MANAGER_DIR/app.py" ]; then
     cd "$MANAGER_DIR"
     python3 app.py \
@@ -103,7 +121,7 @@ fi
 
 # ===== STEP 5: Auto-download models + Start ComfyUI =====
 echo ""
-echo "[Step 5/5] Загрузка моделей (профиль: $MODEL_PROFILE, тиры: 1,2)..."
+echo "[Step 6/6] Загрузка моделей (профиль: $MODEL_PROFILE, тиры: 1,2)..."
 if [ -f "$CONFIG_DIR/models_catalog.json" ]; then
     python3 "$SCRIPTS_DIR/download_models.py" \
         --catalog "$CONFIG_DIR/models_catalog.json" \
