@@ -4,11 +4,10 @@ ComfyUI Model Manager — Gradio Web UI
 
 Tabs:
   1. Status — GPU info, disk, ComfyUI status
-  2. Models — categorized checkboxes, download
-  3. LoRAs — catalog with add/download/auto_download
-  4. Custom Nodes — install/remove
-  5. Add Model — form to add to catalog
-  6. Settings — profile, HF token, sync
+  2. Models — list with checkboxes + simple add form
+  3. LoRAs — list with checkboxes + simple add form
+  4. Custom Nodes — installed nodes list
+  5. Settings — profile, HF token info
 
 Usage:
     python3 app.py --port 7860 --catalog config/models_catalog.json --comfyui-path /workspace/ComfyUI
@@ -21,6 +20,7 @@ import signal
 import subprocess
 import shutil
 import threading
+import time
 from pathlib import Path
 
 import gradio as gr
@@ -28,11 +28,61 @@ import gradio as gr
 try:
     from catalog_manager import CatalogManager, NodesCatalogManager
     from downloader import ModelDownloader
-    from hf_sync import HFConfigSync
+    from hf_sync import HFConfigSync, parse_hf_url
 except ImportError:
     from manager.catalog_manager import CatalogManager, NodesCatalogManager
     from manager.downloader import ModelDownloader
-    from manager.hf_sync import HFConfigSync
+    from manager.hf_sync import HFConfigSync, parse_hf_url
+
+
+class SettingsWatcher:
+    """Watches comfy.settings.json and auto-pushes to HF every hour or on shutdown."""
+
+    def __init__(self, comfyui_path: str, hf_sync: HFConfigSync, interval: int = 3600):
+        self.comfyui_path = comfyui_path
+        self.hf_sync = hf_sync
+        self.interval = interval  # seconds between checks (default: 1 hour)
+        self.settings_path = Path(comfyui_path) / "user" / "default" / "comfy.settings.json"
+        self._last_mtime = self._get_mtime()
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def _get_mtime(self) -> float:
+        try:
+            return self.settings_path.stat().st_mtime
+        except FileNotFoundError:
+            return 0
+
+    def _has_changed(self) -> bool:
+        current_mtime = self._get_mtime()
+        if current_mtime > self._last_mtime:
+            self._last_mtime = current_mtime
+            return True
+        return False
+
+    def sync_now(self):
+        """Push settings to HF if file exists."""
+        if self.settings_path.exists():
+            if self.hf_sync.push_comfy_settings(self.comfyui_path):
+                print("[settings_watcher] Synced comfy.settings.json to HF")
+            else:
+                print("[settings_watcher] Failed to sync settings")
+
+    def _worker(self):
+        while not self._stop_event.wait(self.interval):
+            if self._has_changed():
+                self.sync_now()
+
+    def start(self):
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._thread.start()
+        print(f"[settings_watcher] Started (interval: {self.interval}s)")
+
+    def stop(self):
+        self._stop_event.set()
+        # Final sync on shutdown
+        if self._has_changed():
+            self.sync_now()
 
 
 class ManagerApp:
@@ -49,6 +99,19 @@ class ManagerApp:
         self.downloader = ModelDownloader(str(comfyui_path))
         self.hf_sync = HFConfigSync()
         self.comfyui_process = None
+
+        # Start settings watcher
+        self.settings_watcher = SettingsWatcher(str(comfyui_path), self.hf_sync)
+        self.settings_watcher.start()
+
+        # Register shutdown handler
+        signal.signal(signal.SIGTERM, self._on_shutdown)
+        signal.signal(signal.SIGINT, self._on_shutdown)
+
+    def _on_shutdown(self, signum, frame):
+        print(f"[manager] Shutdown signal ({signum}), syncing settings...")
+        self.settings_watcher.stop()
+        raise SystemExit(0)
 
     def _load_loras(self) -> dict:
         if self.loras_path.exists():
@@ -150,7 +213,7 @@ class ManagerApp:
     # =============== Models Tab ===============
 
     def get_model_choices(self) -> dict:
-        """Get models organized by category for UI."""
+        """Get models organized by category for UI. Checked state from catalog 'selected' field."""
         result = {}
         for cat_id, category in self.catalog.get_categories().items():
             choices = []
@@ -160,11 +223,8 @@ class ManagerApp:
                 exists = self.catalog.check_model_exists(m, str(self.comfyui_path))
                 if exists:
                     label += " [on disk]"
-                tier = m.get("tier", 3)
-                if tier == 1:
-                    label += " [T1]"
                 choices.append((label, m["name"]))
-                if exists or tier <= 2:
+                if m.get("selected", False) or exists:
                     defaults.append(m["name"])
             result[cat_id] = {
                 "display_name": category.get("display_name", cat_id),
@@ -174,14 +234,18 @@ class ManagerApp:
         return result
 
     def download_selected(self, *selected_names_lists) -> str:
-        """Download selected models."""
+        """Download selected models and save selection state."""
         all_selected = []
         for names in selected_names_lists:
             if names:
                 all_selected.extend(names)
 
+        # Save selection state to catalog (persist across sessions)
+        self.catalog.update_selected(all_selected)
+        self.hf_sync.push_models_catalog(self.catalog.catalog)
+
         if not all_selected:
-            return "Nothing selected"
+            return "Selection saved. Nothing to download."
 
         models = []
         for name in all_selected:
@@ -190,7 +254,7 @@ class ManagerApp:
                 models.append(m)
 
         if not models:
-            return "All selected models already on disk"
+            return "Selection saved. All selected models already on disk."
 
         total_gb = sum(m.get("size_gb", 0) for m in models)
         hf_token = os.environ.get("HF_TOKEN")
@@ -201,35 +265,67 @@ class ManagerApp:
     def get_download_log(self) -> str:
         return self.downloader.progress.get_log() or "Log empty"
 
+    def add_new_model(self, name: str, folder: str, hf_link: str) -> str:
+        """Add a new model to the catalog. Parses HF URL automatically."""
+        if not name or not folder or not hf_link:
+            return "Fill all fields: Name, Folder, HF Link"
+
+        parsed = parse_hf_url(hf_link)
+        if not parsed["hf_repo"]:
+            return "Could not parse HF link. Use format: https://huggingface.co/org/repo/blob/main/file.safetensors"
+
+        model = {
+            "name": name,
+            "filename": parsed["filename"],
+            "size_gb": 0,
+            "tier": 3,
+            "source": "hf",
+            "hf_repo": parsed["hf_repo"],
+            "hf_file": parsed["hf_file"],
+            "dest_path": f"models/{folder}/",
+            "tags": [],
+        }
+
+        if self.catalog.add_model(folder, model):
+            # Sync catalog to HF
+            self.hf_sync.push_models_catalog(self.catalog.catalog)
+            return f"Model '{name}' added (folder: {folder})"
+        else:
+            return f"Model '{name}' already exists (duplicate filename)"
+
     # =============== LoRA Tab ===============
 
     def get_lora_choices(self) -> tuple:
-        """Get LoRA choices and defaults for checkbox group."""
+        """Get LoRA choices and defaults. Checked state from 'selected' field."""
         choices = []
         defaults = []
         loras_dir = self.comfyui_path / "models" / "loras"
 
         for lora in self.loras_catalog.get("loras", []):
             name = lora["name"]
-            size = lora.get("size_gb", 0)
             exists = (loras_dir / lora["filename"]).exists()
 
-            label = f"{name} ({size}GB)"
+            label = name
             if exists:
                 label += " [on disk]"
-            if lora.get("auto_download"):
-                label += " [auto]"
 
             choices.append((label, name))
-            if exists or lora.get("auto_download"):
+            if lora.get("selected", False) or exists:
                 defaults.append(name)
 
         return choices, defaults
 
     def download_selected_loras(self, selected_names: list) -> str:
-        """Download selected LoRAs."""
+        """Download selected LoRAs and save selection state."""
+        # Save selection state
+        selected_set = set(selected_names or [])
+        for lora in self.loras_catalog.get("loras", []):
+            lora["selected"] = lora["name"] in selected_set
+        self._save_loras()
+        self.hf_sync.push_loras_catalog(self.loras_catalog)
+
         if not selected_names:
-            return "Nothing selected"
+            return "Selection saved. Nothing to download."
 
         loras_dir = self.comfyui_path / "models" / "loras"
         to_download = []
@@ -249,36 +345,39 @@ class ManagerApp:
                     })
 
         if not to_download:
-            return "All selected LoRAs already on disk"
+            return "Selection saved. All selected LoRAs already on disk."
 
         total_gb = sum(m.get("size_gb", 0) for m in to_download)
         hf_token = os.environ.get("HF_TOKEN")
         self.downloader.download_models(to_download, hf_token)
         return f"Downloading: {len(to_download)} LoRAs ({total_gb:.1f}GB)"
 
-    def add_lora(self, name: str, hf_repo: str, hf_file: str, size_gb: float, auto_download: bool) -> str:
-        """Add a new LoRA to the catalog."""
-        if not name or not hf_repo:
-            return "Fill required fields: Name, HF Repo"
+    def add_lora(self, name: str, hf_link: str) -> str:
+        """Add a new LoRA to the catalog. Only 2 fields: name + HF link."""
+        if not name or not hf_link:
+            return "Fill both fields: Name and HF Link"
 
-        filename = hf_file.split("/")[-1] if hf_file else name.replace(" ", "_") + ".safetensors"
+        parsed = parse_hf_url(hf_link)
+        if not parsed["hf_repo"]:
+            return "Could not parse HF link. Use format: https://huggingface.co/org/repo/blob/main/lora.safetensors"
 
         # Check duplicate
         for existing in self.loras_catalog.get("loras", []):
-            if existing["filename"] == filename:
-                return f"LoRA with filename '{filename}' already exists"
+            if existing["filename"] == parsed["filename"]:
+                return f"LoRA with filename '{parsed['filename']}' already exists"
 
         lora = {
             "name": name,
-            "filename": filename,
-            "hf_repo": hf_repo,
-            "hf_file": hf_file or filename,
-            "size_gb": float(size_gb) if size_gb else 0,
-            "auto_download": auto_download,
+            "filename": parsed["filename"],
+            "hf_repo": parsed["hf_repo"],
+            "hf_file": parsed["hf_file"],
+            "size_gb": 0,
         }
 
         self.loras_catalog.setdefault("loras", []).append(lora)
         self._save_loras()
+        # Sync to HF
+        self.hf_sync.push_loras_catalog(self.loras_catalog)
         return f"LoRA '{name}' added to catalog"
 
     def remove_lora(self, name: str) -> str:
@@ -288,50 +387,9 @@ class ManagerApp:
             if lora["name"] == name:
                 loras.pop(i)
                 self._save_loras()
+                self.hf_sync.push_loras_catalog(self.loras_catalog)
                 return f"LoRA '{name}' removed from catalog"
         return f"LoRA '{name}' not found"
-
-    def sync_loras_to_hf(self) -> str:
-        """Push loras catalog to HF config repo."""
-        if self.hf_sync.push_loras_catalog(self.loras_catalog):
-            return "LoRA catalog synced to HuggingFace"
-        return "Sync failed (check HF_TOKEN and repo access)"
-
-    def sync_loras_from_hf(self) -> str:
-        """Pull loras catalog from HF config repo."""
-        data = self.hf_sync.pull_loras_catalog()
-        if data and data.get("loras"):
-            self.loras_catalog = data
-            self._save_loras()
-            return f"Pulled {len(data['loras'])} LoRAs from HuggingFace"
-        return "No LoRA catalog found on HuggingFace (or empty)"
-
-    # =============== Add Model Tab ===============
-
-    def add_new_model(
-        self, name: str, hf_repo: str, hf_file: str,
-        category: str, size_gb: float, tags: str
-    ) -> str:
-        if not name or not hf_repo or not category:
-            return "Fill required fields: Name, HF Repo, Category"
-
-        filename = hf_file.split("/")[-1] if hf_file else hf_repo.split("/")[-1] + ".safetensors"
-        model = {
-            "name": name,
-            "filename": filename,
-            "size_gb": float(size_gb) if size_gb else 0,
-            "tier": 3,
-            "source": "hf",
-            "hf_repo": hf_repo,
-            "hf_file": hf_file or filename,
-            "dest_path": f"models/{category}",
-            "tags": [t.strip() for t in tags.split(",") if t.strip()] if tags else [],
-        }
-
-        if self.catalog.add_model(category, model):
-            return f"Model '{name}' added to catalog (category: {category})"
-        else:
-            return f"Model '{name}' already exists (duplicate filename)"
 
     # =============== Build UI ===============
 
@@ -360,19 +418,20 @@ class ManagerApp:
                 stop_btn.click(self.stop_comfyui, outputs=comfyui_status)
 
             with gr.Tab("Models"):
-                gr.Markdown("Select models to download. Models marked [on disk] are already present.")
+                gr.Markdown("Select models and click Download. Models marked [on disk] are already present.")
 
                 model_data = self.get_model_choices()
                 checkboxes = []
 
                 for cat_id, data in model_data.items():
-                    with gr.Accordion(data["display_name"], open=True):
-                        cb = gr.CheckboxGroup(
-                            choices=data["choices"],
-                            value=data["defaults"],
-                            label=cat_id,
-                        )
-                        checkboxes.append(cb)
+                    if data["choices"]:
+                        with gr.Accordion(data["display_name"], open=True):
+                            cb = gr.CheckboxGroup(
+                                choices=data["choices"],
+                                value=data["defaults"],
+                                label=cat_id,
+                            )
+                            checkboxes.append(cb)
 
                 if not checkboxes:
                     gr.Markdown("*Model catalog is empty.*")
@@ -390,9 +449,34 @@ class ManagerApp:
                     )
                 refresh_log_btn.click(self.get_download_log, outputs=download_log)
 
+                gr.Markdown("---")
+                gr.Markdown("### Add Model")
+
+                with gr.Column():
+                    model_name = gr.Textbox(label="Name", placeholder="Wan Video 14B fp16")
+                    model_folder = gr.Dropdown(
+                        choices=[
+                            "checkpoints", "unet", "diffusion_models",
+                            "clip", "clip_vision", "text_encoders",
+                            "vae", "controlnet", "upscale_models", "sams",
+                        ],
+                        label="Folder",
+                    )
+                    model_hf_link = gr.Textbox(
+                        label="HuggingFace Link",
+                        placeholder="https://huggingface.co/org/repo/blob/main/model.safetensors",
+                    )
+                    model_add_btn = gr.Button("Add Model", variant="primary")
+                    model_add_result = gr.Textbox(label="Result", interactive=False)
+
+                    model_add_btn.click(
+                        self.add_new_model,
+                        inputs=[model_name, model_folder, model_hf_link],
+                        outputs=model_add_result,
+                    )
+
             with gr.Tab("LoRAs"):
-                gr.Markdown("### LoRA Catalog")
-                gr.Markdown("[auto] = downloads at Pod start. Select and click Download for manual download.")
+                gr.Markdown("Select LoRAs and click Download.")
 
                 lora_choices, lora_defaults = self.get_lora_choices()
                 lora_checkboxes = gr.CheckboxGroup(
@@ -401,11 +485,7 @@ class ManagerApp:
                     label="Available LoRAs",
                 )
 
-                with gr.Row():
-                    lora_download_btn = gr.Button("Download selected", variant="primary")
-                    lora_sync_push_btn = gr.Button("Save to cloud")
-                    lora_sync_pull_btn = gr.Button("Load from cloud")
-
+                lora_download_btn = gr.Button("Download selected", variant="primary")
                 lora_status = gr.Textbox(label="Status", interactive=False)
 
                 lora_download_btn.click(
@@ -413,30 +493,22 @@ class ManagerApp:
                     inputs=[lora_checkboxes],
                     outputs=lora_status,
                 )
-                lora_sync_push_btn.click(self.sync_loras_to_hf, outputs=lora_status)
-                lora_sync_pull_btn.click(self.sync_loras_from_hf, outputs=lora_status)
 
                 gr.Markdown("---")
                 gr.Markdown("### Add LoRA")
 
                 with gr.Column():
-                    lora_name = gr.Textbox(label="Name *", placeholder="My LoRA")
-                    lora_hf_repo = gr.Textbox(
-                        label="HuggingFace Repo *",
-                        placeholder="kucher7serg/my-loras",
+                    lora_name = gr.Textbox(label="Name", placeholder="My LoRA")
+                    lora_hf_link = gr.Textbox(
+                        label="HuggingFace Link",
+                        placeholder="https://huggingface.co/org/repo/blob/main/lora.safetensors",
                     )
-                    lora_hf_file = gr.Textbox(
-                        label="Filename in repo",
-                        placeholder="lora.safetensors (or path/to/lora.safetensors)",
-                    )
-                    lora_size = gr.Number(label="Size (GB)", value=0)
-                    lora_auto = gr.Checkbox(label="Auto-download at Pod start", value=False)
                     lora_add_btn = gr.Button("Add LoRA", variant="primary")
                     lora_add_result = gr.Textbox(label="Result", interactive=False)
 
                     lora_add_btn.click(
                         self.add_lora,
-                        inputs=[lora_name, lora_hf_repo, lora_hf_file, lora_size, lora_auto],
+                        inputs=[lora_name, lora_hf_link],
                         outputs=lora_add_result,
                     )
 
@@ -457,41 +529,6 @@ class ManagerApp:
                         )
                 else:
                     gr.Markdown("*Node catalog is empty.*")
-
-            with gr.Tab("Add Model"):
-                gr.Markdown("### Add model to catalog")
-                with gr.Column():
-                    add_name = gr.Textbox(label="Model name *", placeholder="Wan Video 1.4B")
-                    add_hf_repo = gr.Textbox(
-                        label="HuggingFace Repo *",
-                        placeholder="wanvideo/wan-1.4b",
-                    )
-                    add_hf_filename = gr.Textbox(
-                        label="Filename in repo",
-                        placeholder="model.safetensors",
-                    )
-                    add_category = gr.Dropdown(
-                        choices=[
-                            "checkpoints", "loras", "controlnet", "vae",
-                            "upscale_models", "clip", "text_encoders",
-                            "unet", "diffusion_models", "sams",
-                        ],
-                        label="Category *",
-                    )
-                    add_size = gr.Number(label="Size (GB)", value=0)
-                    add_tags = gr.Textbox(
-                        label="Tags (comma-separated)",
-                        placeholder="video, wan, essential",
-                    )
-                    add_btn = gr.Button("Add", variant="primary")
-                    add_result = gr.Textbox(label="Result", interactive=False)
-
-                    add_btn.click(
-                        self.add_new_model,
-                        inputs=[add_name, add_hf_repo, add_hf_filename,
-                                add_category, add_size, add_tags],
-                        outputs=add_result,
-                    )
 
             with gr.Tab("Settings"):
                 gr.Markdown("### Settings")
@@ -528,6 +565,7 @@ class ManagerApp:
                 )
 
                 gr.Markdown(
+                    "ComfyUI settings auto-sync to HuggingFace every hour and on Pod shutdown.\n\n"
                     "Token and config repo are set via environment variables "
                     "`HF_TOKEN` and `HF_CONFIG_REPO` in RunPod Template."
                 )

@@ -96,6 +96,14 @@ class CatalogManager:
     def get_model_local_path(self, model: dict, comfyui_path: str) -> Path:
         return Path(comfyui_path) / model["dest_path"] / model["filename"]
 
+    def update_selected(self, selected_names: list):
+        """Update 'selected' field on all models based on checkbox state."""
+        selected_set = set(selected_names or [])
+        for cat in self.catalog.get("categories", {}).values():
+            for m in cat.get("models", []):
+                m["selected"] = m["name"] in selected_set
+        self.save()
+
 
 class NodesCatalogManager:
     def __init__(self, catalog_path: str):

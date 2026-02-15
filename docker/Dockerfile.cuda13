@@ -3,21 +3,16 @@
 # =============================================================
 # NVFP4 quantization → 2x speedup on Blackwell GPUs (RTX 5090, B200)
 #
-# Base image варианты (раскомментируй нужный):
-#   RunPod (новый формат):  runpod/pytorch:2.9.1-cu1300-torch291-ubuntu2404
-#   Official PyTorch:       pytorch/pytorch:2.9.0-cuda13.0-cudnn9-devel
-#
-# Если RunPod image не найден — используй official PyTorch
+# IMPORTANT: Base image has PyTorch 2.9.0 stable which does NOT support NVFP4.
+# We upgrade to PyTorch 2.11.0 nightly (cu130) after installing ComfyUI deps.
 # =============================================================
 
 # --- Base image ---
-# build_and_push.sh автоматически находит подходящий image
-# Можно переопределить: docker build --build-arg BASE_IMAGE=pytorch/pytorch:2.9.0-cuda13.0-cudnn9-devel
 ARG BASE_IMAGE=pytorch/pytorch:2.9.0-cuda13.0-cudnn9-devel
 FROM ${BASE_IMAGE}
 
 LABEL maintainer="art@aist.digital"
-LABEL description="ComfyUI + Model Manager for RunPod — CUDA 13.0 Blackwell"
+LABEL description="ComfyUI + Model Manager for RunPod — CUDA 13.0 Blackwell + NVFP4"
 
 # --- Env ---
 ENV DEBIAN_FRONTEND=noninteractive
@@ -42,22 +37,40 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Verify CUDA 13.0 ---
-RUN python3 -c "\
-import torch; \
-print(f'PyTorch: {torch.__version__}'); \
-print(f'CUDA: {torch.version.cuda}'); \
-assert torch.version.cuda.startswith('13'), f'WRONG CUDA: {torch.version.cuda}'; \
-print('CUDA 13.0 verified!'); \
-"
-
 # --- Clone ComfyUI ---
 RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git $COMFYUI_PATH
 
 WORKDIR $COMFYUI_PATH
 
-# --- Install ComfyUI requirements ---
+# --- Install ComfyUI requirements (with base PyTorch 2.9.0) ---
 RUN pip install --no-cache-dir -r requirements.txt
+
+# --- Upgrade PyTorch to nightly 2.11.0 for NVFP4 support ---
+# PyTorch 2.9.0 stable only supports FP8 auto-casting.
+# PyTorch 2.11.0 nightly enables NVFP4 via comfy_kitchen backend.
+# torchaudio version MUST match torch nightly date exactly.
+RUN pip install --no-cache-dir \
+    torch==2.11.0.dev20260129+cu130 \
+    torchvision \
+    torchaudio==2.11.0.dev20260129+cu130 \
+    --index-url https://download.pytorch.org/whl/nightly/cu130 \
+    --force-reinstall
+
+# --- Fix numpy for numba compatibility (numpy 2.4 breaks numba) ---
+RUN pip install --no-cache-dir "numpy<2.4"
+
+# --- Install SageAttention ---
+RUN pip install --no-cache-dir sageattention --no-build-isolation
+
+# --- Verify PyTorch + CUDA 13.0 ---
+RUN python3 -c "\
+import torch; \
+print(f'PyTorch: {torch.__version__}'); \
+print(f'CUDA: {torch.version.cuda}'); \
+assert torch.version.cuda.startswith('13'), f'WRONG CUDA: {torch.version.cuda}'; \
+assert '2.11' in torch.__version__, f'WRONG PyTorch: {torch.__version__} (need 2.11.0 nightly)'; \
+print('PyTorch 2.11.0 nightly + CUDA 13.0 verified!'); \
+"
 
 # --- Install Tier 1 custom nodes ---
 COPY config/nodes_catalog.json /tmp/nodes_catalog.json
@@ -208,6 +221,8 @@ print('=== Final Verification ==='); \
 print(f'PyTorch: {torch.__version__}'); \
 print(f'CUDA: {torch.version.cuda}'); \
 print(f'cuDNN: {torch.backends.cudnn.version()}'); \
+import sageattention; print(f'SageAttention: {sageattention.__version__}'); \
+import numpy; print(f'NumPy: {numpy.__version__}'); \
 print('Verification passed!'); \
 "
 
