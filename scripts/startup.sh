@@ -123,6 +123,16 @@ try:
     except Exception as e:
         print(f"  [skip] models_catalog.json: {str(e)[:100]}")
 
+    # Sync nodes_catalog.json (override local with HF version if exists)
+    try:
+        hf_hub_download(
+            repo_id=repo, filename="nodes_catalog.json",
+            repo_type="dataset", local_dir=config_dir, token=token,
+        )
+        print("  [ok] nodes_catalog.json")
+    except Exception as e:
+        print(f"  [skip] nodes_catalog.json: {str(e)[:100]}")
+
 except Exception as e:
     print(f"  Config sync error: {e}")
 EOFSYNC
@@ -132,9 +142,9 @@ fi
 
 # ===== STEP 4: Custom Nodes (Tier 2) =====
 echo ""
-echo "[Step 4/8] Установка Tier 2 custom nodes..."
+echo "[Step 4/8] Установка custom nodes..."
 if [ -f "$CONFIG_DIR/nodes_catalog.json" ]; then
-    bash "$SCRIPTS_DIR/install_nodes.sh" "$CONFIG_DIR/nodes_catalog.json" 2 "$WORK_COMFYUI"
+    bash "$SCRIPTS_DIR/install_nodes.sh" "$CONFIG_DIR/nodes_catalog.json" 99 "$WORK_COMFYUI"
 else
     echo "  nodes_catalog.json не найден, пропускаю"
 fi
@@ -164,8 +174,7 @@ fi
 echo ""
 echo "[Step 6/8] Запуск Manager UI..."
 if [ -f "$MANAGER_DIR/app.py" ]; then
-    cd "$MANAGER_DIR"
-    python3 app.py \
+    bash "$SCRIPTS_DIR/run_manager.sh" \
         --port "$MANAGER_PORT" \
         --catalog "$CONFIG_DIR/models_catalog.json" \
         --comfyui-path "$WORK_COMFYUI" \

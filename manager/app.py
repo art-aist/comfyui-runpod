@@ -210,6 +210,87 @@ class ManagerApp:
 
         return "ComfyUI stopped"
 
+    def restart_manager(self) -> str:
+        """Restart Manager UI by exiting. The run_manager.sh wrapper will restart us."""
+        self.settings_watcher.stop()
+        def _exit():
+            time.sleep(1)
+            os._exit(0)
+        threading.Thread(target=_exit, daemon=True).start()
+        return "Restarting Manager UI..."
+
+    # =============== Custom Nodes ===============
+
+    def install_custom_node(self, repo_url: str) -> str:
+        """Install a custom node by git URL."""
+        repo_url = repo_url.strip()
+        if not repo_url:
+            return "Enter a git repo URL"
+
+        name = os.path.basename(repo_url).replace(".git", "")
+        dest = self.comfyui_path / "custom_nodes" / name
+
+        if dest.exists():
+            return f"'{name}' already installed"
+
+        # Clone
+        try:
+            result = subprocess.run(
+                ["git", "clone", "--depth", "1", repo_url, str(dest)],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode != 0:
+                return f"git clone failed: {result.stderr[:300]}"
+        except subprocess.TimeoutExpired:
+            return "git clone timed out (>120s)"
+
+        # Install requirements
+        req_file = dest / "requirements.txt"
+        install_log = f"'{name}' cloned."
+        if req_file.exists():
+            pip_result = subprocess.run(
+                ["pip", "install", "--no-cache-dir", "-r", str(req_file)],
+                capture_output=True, text=True, timeout=300,
+            )
+            if pip_result.returncode == 0:
+                install_log += " Dependencies installed."
+            else:
+                install_log += f" pip install warnings: {pip_result.stderr[:200]}"
+
+        # Run install.py if exists
+        install_py = dest / "install.py"
+        if install_py.exists():
+            subprocess.run(
+                ["python3", str(install_py)],
+                cwd=str(dest), capture_output=True, timeout=120,
+            )
+            install_log += " install.py executed."
+
+        # Save to nodes_catalog.json and sync to HF
+        self.nodes_catalog.add_node(name, repo_url, tier=2)
+        self.hf_sync.push_nodes_catalog(self.nodes_catalog.catalog)
+
+        install_log += " Saved to catalog. Restart ComfyUI to activate."
+        return install_log
+
+    def remove_custom_node(self, name: str) -> str:
+        """Remove a custom node by folder name."""
+        name = name.strip()
+        if not name:
+            return "Enter node name"
+
+        dest = self.comfyui_path / "custom_nodes" / name
+        if not dest.exists():
+            return f"'{name}' not found"
+
+        shutil.rmtree(str(dest))
+
+        # Remove from nodes_catalog.json and sync to HF
+        self.nodes_catalog.remove_node_by_name(name)
+        self.hf_sync.push_nodes_catalog(self.nodes_catalog.catalog)
+
+        return f"'{name}' removed from disk and catalog. Restart ComfyUI to apply."
+
     # =============== Models Tab ===============
 
     def get_model_choices(self) -> dict:
@@ -410,12 +491,14 @@ class ManagerApp:
                     refresh_btn = gr.Button("Refresh")
                     start_btn = gr.Button("Start ComfyUI", variant="primary")
                     stop_btn = gr.Button("Stop ComfyUI", variant="stop")
+                    restart_mgr_btn = gr.Button("Restart Manager UI", variant="secondary")
 
                 comfyui_status = gr.Textbox(label="ComfyUI", interactive=False)
 
                 refresh_btn.click(self.get_system_status, outputs=status_text)
                 start_btn.click(self.start_comfyui, outputs=comfyui_status)
                 stop_btn.click(self.stop_comfyui, outputs=comfyui_status)
+                restart_mgr_btn.click(self.restart_manager, outputs=comfyui_status)
 
             with gr.Tab("Models"):
                 gr.Markdown("Select models and click Download. Models marked [on disk] are already present.")
@@ -529,6 +612,38 @@ class ManagerApp:
                         )
                 else:
                     gr.Markdown("*Node catalog is empty.*")
+
+                gr.Markdown("---")
+                gr.Markdown("### Install custom node")
+                with gr.Column():
+                    node_repo_url = gr.Textbox(
+                        label="Git repo URL",
+                        placeholder="https://github.com/author/ComfyUI-NodeName.git",
+                    )
+                    node_install_btn = gr.Button("Install", variant="primary")
+                    node_install_result = gr.Textbox(label="Result", interactive=False)
+
+                    node_install_btn.click(
+                        self.install_custom_node,
+                        inputs=[node_repo_url],
+                        outputs=node_install_result,
+                    )
+
+                gr.Markdown("---")
+                gr.Markdown("### Remove custom node")
+                with gr.Column():
+                    node_remove_name = gr.Textbox(
+                        label="Node folder name",
+                        placeholder="ComfyUI-NodeName",
+                    )
+                    node_remove_btn = gr.Button("Remove", variant="stop")
+                    node_remove_result = gr.Textbox(label="Result", interactive=False)
+
+                    node_remove_btn.click(
+                        self.remove_custom_node,
+                        inputs=[node_remove_name],
+                        outputs=node_remove_result,
+                    )
 
             with gr.Tab("Settings"):
                 gr.Markdown("### Settings")

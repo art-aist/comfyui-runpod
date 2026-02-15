@@ -152,6 +152,14 @@ class HFConfigSync:
         """Push models_catalog.json to HF."""
         return self.push_file("models_catalog.json", catalog, "Update models catalog")
 
+    def pull_nodes_catalog(self) -> Optional[dict]:
+        """Pull nodes_catalog.json from HF."""
+        return self.pull_file("nodes_catalog.json")
+
+    def push_nodes_catalog(self, catalog: dict) -> bool:
+        """Push nodes_catalog.json to HF."""
+        return self.push_file("nodes_catalog.json", catalog, "Update nodes catalog")
+
     def pull_comfy_settings(self, comfyui_path: str) -> bool:
         """Pull comfy.settings.json from HF and place it in ComfyUI user dir."""
         dest = f"{comfyui_path}/user/default/comfy.settings.json"

@@ -133,3 +133,38 @@ class NodesCatalogManager:
             return False
         name = os.path.basename(repo_url).replace(".git", "")
         return os.path.exists(os.path.join(comfyui_path, "custom_nodes", name))
+
+    def add_node(self, name: str, repo_url: str, tier: int = 2) -> bool:
+        """Add a node to the catalog. Returns False if duplicate."""
+        for existing in self.catalog.get("nodes", []):
+            if existing.get("repo_url", "").rstrip("/") == repo_url.rstrip("/"):
+                return False
+
+        self.catalog.setdefault("nodes", []).append({
+            "name": name,
+            "repo_url": repo_url,
+            "tier": tier,
+        })
+        self.save()
+        return True
+
+    def remove_node(self, repo_url: str) -> bool:
+        """Remove a node from the catalog by repo_url. Returns False if not found."""
+        nodes = self.catalog.get("nodes", [])
+        for i, node in enumerate(nodes):
+            if node.get("repo_url", "").rstrip("/") == repo_url.rstrip("/"):
+                nodes.pop(i)
+                self.save()
+                return True
+        return False
+
+    def remove_node_by_name(self, folder_name: str) -> bool:
+        """Remove a node from the catalog by folder name (basename of repo_url)."""
+        nodes = self.catalog.get("nodes", [])
+        for i, node in enumerate(nodes):
+            node_folder = os.path.basename(node.get("repo_url", "")).replace(".git", "")
+            if node_folder == folder_name:
+                nodes.pop(i)
+                self.save()
+                return True
+        return False
