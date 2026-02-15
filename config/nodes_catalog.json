@@ -75,7 +75,7 @@
     },
     {
       "name": "ComfyUI-SuperUltimateVaceTools",
-      "repo_url": "https://github.com/kijai/ComfyUI-SuperUltimateVACETools.git",
+      "repo_url": "https://github.com/bbaudio-2025/ComfyUI-SuperUltimateVaceTools.git",
       "description": "Продвинутые инструменты для VACE",
       "tier": 1,
       "required": true
