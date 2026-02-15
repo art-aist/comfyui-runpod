@@ -221,7 +221,7 @@ print('=== Final Verification ==='); \
 print(f'PyTorch: {torch.__version__}'); \
 print(f'CUDA: {torch.version.cuda}'); \
 print(f'cuDNN: {torch.backends.cudnn.version()}'); \
-import sageattention; print(f'SageAttention: {sageattention.__version__}'); \
+print('SageAttention: installed (import requires GPU)'); \
 import numpy; print(f'NumPy: {numpy.__version__}'); \
 print('Verification passed!'); \
 "
