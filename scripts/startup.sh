@@ -95,8 +95,11 @@ if command -v jupyter &> /dev/null; then
         --port="$JUPYTER_PORT" \
         --no-browser \
         --allow-root \
-        --NotebookApp.token='' \
-        --NotebookApp.password='' \
+        --ServerApp.token='' \
+        --ServerApp.password='' \
+        --ServerApp.allow_origin='*' \
+        --ServerApp.allow_remote_access=True \
+        --ServerApp.disable_check_xsrf=True \
         --notebook-dir="$WORKSPACE" \
         &
     echo "  JupyterLab запущен на порту $JUPYTER_PORT"
@@ -127,7 +130,7 @@ if [ -f "$CONFIG_DIR/models_catalog.json" ]; then
         --catalog "$CONFIG_DIR/models_catalog.json" \
         --profile "$MODEL_PROFILE" \
         --comfyui-path "$WORK_COMFYUI" \
-        --tier 1 2
+        --tier 1 2 || echo "  ВНИМАНИЕ: Некоторые модели не скачались (см. ошибки выше)"
     echo "  Загрузка моделей завершена"
 else
     echo "  models_catalog.json не найден, пропускаю"

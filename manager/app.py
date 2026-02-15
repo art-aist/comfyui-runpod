@@ -211,7 +211,6 @@ class ManagerApp:
     def build_ui(self) -> gr.Blocks:
         with gr.Blocks(
             title="ComfyUI Model Manager",
-            theme=gr.themes.Soft(),
         ) as demo:
             gr.Markdown("# ComfyUI Model Manager")
 

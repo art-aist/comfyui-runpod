@@ -86,7 +86,6 @@ def download_model_hf(model: dict, base_path: str, hf_token: str = None) -> dict
             repo_id=hf_repo,
             filename=hf_file,
             local_dir=str(dest_dir),
-            local_dir_use_symlinks=False,
             token=hf_token,
         )
 

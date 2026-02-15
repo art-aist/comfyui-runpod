@@ -151,7 +151,6 @@ for m in tier1_models:
             repo_id=m["hf_repo"],
             filename=m["hf_file"],
             local_dir=m["dest_dir"],
-            local_dir_use_symlinks=False,
             token=hf_token,
         )
         # Rename if hf_file has subdirs (downloaded to subdir)

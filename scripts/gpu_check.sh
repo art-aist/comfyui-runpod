@@ -156,15 +156,21 @@ fi
 
 # --- 8. Disk space ---
 echo -n "[7/7] Disk space... "
-DISK_AVAIL=$(df -k /workspace 2>/dev/null | tail -1 | awk '{print int($4/1048576)}' || echo "0")
+DISK_AVAIL=$(df -BG /workspace 2>/dev/null | tail -1 | awk '{gsub(/G/,"",$4); print int($4)}' || echo "0")
+# NFS может показывать абсурдные значения — ограничиваем до разумного
+if [ "${DISK_AVAIL:-0}" -gt 10000 ]; then
+    DISK_DISPLAY=">10TB (NFS)"
+else
+    DISK_DISPLAY="${DISK_AVAIL}GB"
+fi
 if [ "${DISK_AVAIL:-0}" -lt 50 ]; then
-    echo -e "${RED}${DISK_AVAIL}GB — мало места для моделей${NC}"
+    echo -e "${RED}${DISK_DISPLAY} — мало места для моделей${NC}"
     ERRORS=$((ERRORS + 1))
 elif [ "${DISK_AVAIL:-0}" -lt 100 ]; then
-    echo -e "${YELLOW}${DISK_AVAIL}GB — хватит для базового набора${NC}"
+    echo -e "${YELLOW}${DISK_DISPLAY} — хватит для базового набора${NC}"
     WARNINGS=$((WARNINGS + 1))
 else
-    echo -e "${GREEN}${DISK_AVAIL}GB — достаточно${NC}"
+    echo -e "${GREEN}${DISK_DISPLAY} — достаточно${NC}"
 fi
 
 # --- Summary ---
